@@ -1,0 +1,20 @@
+{
+  "name": "@monorg/superset-plugin-custom-date-picker",
+  "version": "1.0.0",
+  "description": "Custom date picker",
+  "main": "lib/index.js",
+  "module": "esm/index.js",
+  "files": ["lib", "esm"],
+  "scripts": {
+    "build": "tsc -b .",
+    "prepublish": "npm run build"
+  },
+  "peerDependencies": {
+    "@superset-ui/chart-controls": "*",
+    "@superset-ui/core": "*",
+    "react": "^17.13.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}
