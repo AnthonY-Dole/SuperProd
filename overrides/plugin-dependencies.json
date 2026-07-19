@@ -1,0 +1,3 @@
+{
+  "@monorg/superset-plugin-custom-date-picker": "file:../plugins/datePickerCustom"
+}

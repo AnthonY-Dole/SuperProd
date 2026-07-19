@@ -1,0 +1,7 @@
+[
+  {
+    "importName": "CustomDatePickerPlugin",
+    "packageName": "@monorg/superset-plugin-custom-date-picker",
+    "key": "@monorg/superset-plugin-custom-date-picker"
+  }
+]

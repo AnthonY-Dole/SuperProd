@@ -1,45 +1,75 @@
 version: "3.8"
 
-services:
-  superset:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: mon-superset-custom:latest
-    container_name: superset
-    restart: unless-stopped
-    environment:
-      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=superset
-      - DB_USER=superset
-      - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    ports:
-      - "8088:8088"
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - ./dashboards:/app/dashboards
+x-superset-common: &superset-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: superset-custom:latest
+  environment: &superset-env
+    SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+    DATABASE_HOST: postgres
+    DATABASE_PORT: 5432
+    DATABASE_DIALECT: postgresql
+    DATABASE_USER: superset
+    DATABASE_PASSWORD: ${DB_PASSWORD}
+    DATABASE_DB: superset
+    SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${DB_PASSWORD}@postgres:5432/superset
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - superset-net
 
-  db:
-    image: postgres:15
+services:
+  postgres:
+    image: postgres:17-alpine
     container_name: superset-db
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=superset
-      - POSTGRES_USER=superset
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: superset
     volumes:
-      - superset-db-data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - superset-net
 
-  redis:
-    image: redis:7
-    container_name: superset-redis
+  superset-init:
+    <<: *superset-common
+    container_name: superset-init
+    profiles:
+      - init
+    command: >
+      bash -c "
+        superset db upgrade &&
+        superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password ${ADMIN_PASSWORD} &&
+        superset init &&
+        echo 'Superset initialized successfully'
+      "
+    restart: "no"
+
+  superset:
+    <<: *superset-common
+    container_name: superset
+    ports:
+      - "8088:8088"
+    command: >
+      bash -c "
+        superset db upgrade &&
+        gunicorn --bind 0.0.0.0:8088 --workers 4 --timeout 120 'superset.app:create_app()'
+      "
     restart: unless-stopped
+    volumes:
+      - ./dashboards:/app/dashboards
 
 volumes:
-  superset-db-data:
+  pgdata:
+
+networks:
+  superset-net:
+    driver: bridge
